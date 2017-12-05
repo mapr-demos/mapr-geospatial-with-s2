@@ -1,6 +1,6 @@
-package com.mapr.geospatial.geo;
+package com.mapr.geospatial.entity;
 
-public class GeoJson {
+public class Coordinate {
 
     private String _id;
     private String name;
@@ -54,13 +54,13 @@ public class GeoJson {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
 
-        GeoJson geoJson = (GeoJson) o;
+        Coordinate coordinate = (Coordinate) o;
 
-        if (Double.compare(geoJson.latitude, latitude) != 0) return false;
-        if (Double.compare(geoJson.longitude, longitude) != 0) return false;
-        if (_id != null ? !_id.equals(geoJson._id) : geoJson._id != null) return false;
-        if (name != null ? !name.equals(geoJson.name) : geoJson.name != null) return false;
-        return type != null ? type.equals(geoJson.type) : geoJson.type == null;
+        if (Double.compare(coordinate.latitude, latitude) != 0) return false;
+        if (Double.compare(coordinate.longitude, longitude) != 0) return false;
+        if (_id != null ? !_id.equals(coordinate._id) : coordinate._id != null) return false;
+        if (name != null ? !name.equals(coordinate.name) : coordinate.name != null) return false;
+        return type != null ? type.equals(coordinate.type) : coordinate.type == null;
     }
 
     @Override
@@ -79,7 +79,7 @@ public class GeoJson {
 
     @Override
     public String toString() {
-        return "GeoJson{" +
+        return "Coordinate{" +
                 "_id='" + _id + '\'' +
                 ", name='" + name + '\'' +
                 ", type='" + type + '\'' +

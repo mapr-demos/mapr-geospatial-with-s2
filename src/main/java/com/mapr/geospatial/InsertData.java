@@ -1,68 +1,94 @@
 package com.mapr.geospatial;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.geometry.S2LatLng;
-import com.mapr.geospatial.geo.GeoJson;
+import com.google.common.base.Preconditions;
+import com.mapr.geospatial.entity.Coordinate;
 import org.ojai.Document;
+import org.ojai.DocumentStream;
 import org.ojai.store.Connection;
 import org.ojai.store.DocumentStore;
 import org.ojai.store.DriverManager;
 import org.ojai.store.Query;
 import org.ojai.store.QueryCondition;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.util.UUID;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.net.URL;
+import java.util.Scanner;
 
 public class InsertData {
-    public static void main(String[] args) throws JsonProcessingException {
+
+    private static final Logger log = LoggerFactory.getLogger(InsertData.class);
+
+    private static final String TABLE_NAME = "/apps/geo_data";
+    private static final String DRIVER_NAME = "ojai:mapr:";
+
+    private static final String SAMPLE_DATA_FILE_NAME = "coordinates";
+
+    public static void main(String[] args) throws Exception {
 
         // Create an OJAI connection to MapR cluster
-        final Connection connection = DriverManager.getConnection("ojai:mapr:");
+        final Connection connection = DriverManager.getConnection(DRIVER_NAME);
 
         // Get an instance of OJAI
-        final DocumentStore store = connection.getStore("/apps/geo_data");
+        final DocumentStore store = connection.getStore(TABLE_NAME);
 
-        GeoJson geo = createGeoJson();
-//        store.insert(connection.newDocument(convertToJson(geo)));
+        insertDataFromRes(connection, store);
 
         for (Document entries : store.find()) {
-            System.out.println(entries.asJsonString());
+            log.info(entries.asJsonString());
         }
 
         Query query = connection.newQuery()
-                .where(connection.newCondition().is("latitude", QueryCondition.Op.GREATER_OR_EQUAL, -108.01621).build())
+                .where(
+                        connection.newCondition()
+                                .is("latitude", QueryCondition.Op.EQUAL, 37.4185099)
+                                .build())
                 .build();
 
-        GeoJson geoJson = null;
+        Coordinate coordinate;
 
         for (Document entries : store.findQuery(query)) {
-//            System.out.println(entries.asJsonString());
-            geoJson = entries.toJavaBean(GeoJson.class);
-            System.out.println(geoJson.toString());
+            coordinate = entries.toJavaBean(Coordinate.class);
+            log.info(coordinate.toString());
         }
 
-        if (geoJson != null) {
-            S2LatLng s2LatLng =
-                    S2LatLng.fromRadians(geoJson.getLatitude(), geoJson.getLongitude());
-            System.out.printf(s2LatLng.toString());
-        }
+//        if (coo != null) {
+//            S2LatLng s2LatLng =
+//                    S2LatLng.fromRadians(coo.getLatitude(), coo.getLongitude());
+//            System.out.printf(s2LatLng.toString());
+//        }
+
+        purgeTable(store);
 
         store.close();
         connection.close();
     }
 
-    private static String convertToJson(Object o) throws JsonProcessingException {
-        return new ObjectMapper().writeValueAsString(o);
+    private static void insertDataFromRes(Connection connection,
+                                          DocumentStore store) throws FileNotFoundException {
+        File file = getResourceFile(InsertData.class);
+        Scanner scanner = new Scanner(file);
+
+        while (scanner.hasNext()) {
+            store.insert(connection.newDocument(scanner.nextLine()));
+        }
     }
 
-    private static GeoJson createGeoJson() {
-        GeoJson geo = new GeoJson();
-        String newDocUUID = UUID.randomUUID().toString();
-        geo.set_id(newDocUUID);
-        geo.setType("Point");
-        geo.setLatitude(37.4185099);
-        geo.setLongitude(-121.9450038);
-        geo.setName("MapR headquarter");
-        return geo;
+    private static void purgeTable(DocumentStore store) {
+        DocumentStream streamMasterDocs = store.find();
+        for (Document userDocument : streamMasterDocs) {
+            store.delete(userDocument.getId());
+        }
+        store.flush();
+    }
+
+    private static File getResourceFile(Class clazz) {
+        ClassLoader classLoader = clazz.getClassLoader();
+        URL coordinatesUrl = classLoader.getResource(SAMPLE_DATA_FILE_NAME);
+        Preconditions.checkNotNull(coordinatesUrl, "Cannot find file " + SAMPLE_DATA_FILE_NAME);
+
+        return new File(coordinatesUrl.getFile());
     }
 }
