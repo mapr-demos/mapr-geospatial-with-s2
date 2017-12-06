@@ -17,6 +17,8 @@ import java.io.FileNotFoundException;
 import java.net.URL;
 import java.util.Scanner;
 
+import static org.apache.commons.lang3.CharEncoding.UTF_8;
+
 public class InsertData {
 
     private static final Logger log = LoggerFactory.getLogger(InsertData.class);
@@ -47,18 +49,17 @@ public class InsertData {
                                 .build())
                 .build();
 
-        Coordinate coordinate;
+        Coordinate coordinate = null;
 
         for (Document entries : store.findQuery(query)) {
             coordinate = entries.toJavaBean(Coordinate.class);
             log.info(coordinate.toString());
         }
 
-//        if (coo != null) {
-//            S2LatLng s2LatLng =
-//                    S2LatLng.fromRadians(coo.getLatitude(), coo.getLongitude());
-//            System.out.printf(s2LatLng.toString());
-//        }
+        assert coordinate != null;
+
+        Geo geo =
+                new Geo(coordinate.getLatitude(), coordinate.getLongitude());
 
         purgeTable(store);
 
@@ -69,7 +70,7 @@ public class InsertData {
     private static void insertDataFromRes(Connection connection,
                                           DocumentStore store) throws FileNotFoundException {
         File file = getResourceFile(InsertData.class);
-        Scanner scanner = new Scanner(file);
+        Scanner scanner = new Scanner(file, UTF_8);
 
         while (scanner.hasNext()) {
             store.insert(connection.newDocument(scanner.nextLine()));
