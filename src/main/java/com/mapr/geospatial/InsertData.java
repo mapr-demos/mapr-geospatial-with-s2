@@ -1,14 +1,10 @@
 package com.mapr.geospatial;
 
 import com.google.common.base.Preconditions;
-import com.mapr.geospatial.entity.Coordinate;
 import org.ojai.Document;
-import org.ojai.DocumentStream;
 import org.ojai.store.Connection;
 import org.ojai.store.DocumentStore;
 import org.ojai.store.DriverManager;
-import org.ojai.store.Query;
-import org.ojai.store.QueryCondition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -23,73 +19,91 @@ public class InsertData {
 
     private static final Logger log = LoggerFactory.getLogger(InsertData.class);
 
-    private static final String TABLE_NAME = "/apps/geo_data";
+    private static final String AIRPORTS_TABLE_NAME = "/apps/airports";
+    private static final String STATES_TABLE_NAME = "/apps/states";
+
     private static final String DRIVER_NAME = "ojai:mapr:";
 
-    private static final String SAMPLE_DATA_FILE_NAME = "coordinates";
+    private static final String AIRPORTS_SAMPLE_DATA = "airports";
+    private static final String STATES_SAMPLE_DATA = "states";
 
     public static void main(String[] args) throws Exception {
 
         // Create an OJAI connection to MapR cluster
         final Connection connection = DriverManager.getConnection(DRIVER_NAME);
 
-        // Get an instance of OJAI
-        final DocumentStore store = connection.getStore(TABLE_NAME);
+        // Get an instance of airports storage
+        final DocumentStore airports = connection.getStore(AIRPORTS_TABLE_NAME);
 
-        insertDataFromRes(connection, store);
+        // Get an instance of states storage
+        final DocumentStore states = connection.getStore(STATES_TABLE_NAME);
 
-        for (Document entries : store.find()) {
-            log.info(entries.asJsonString());
+        try {
+
+            File airportsFile
+                    = getResourceFile(InsertData.class, AIRPORTS_SAMPLE_DATA);
+
+            insertDataFromFile(connection, airports, airportsFile);
+
+            File statesFile =
+                    getResourceFile(InsertData.class, STATES_SAMPLE_DATA);
+
+            insertDataFromFile(connection, states, statesFile);
+
+            printAllTables(airports);
+            printAllTables(states);
+
+        } finally {
+            // remove all data from db
+            purgeTable(airports);
+            purgeTable(states);
+
+            airports.close();
+            states.close();
+
+            connection.close();
         }
-
-        Query query = connection.newQuery()
-                .where(
-                        connection.newCondition()
-                                .is("latitude", QueryCondition.Op.EQUAL, 37.4185099)
-                                .build())
-                .build();
-
-        Coordinate coordinate = null;
-
-        for (Document entries : store.findQuery(query)) {
-            coordinate = entries.toJavaBean(Coordinate.class);
-            log.info(coordinate.toString());
-        }
-
-        assert coordinate != null;
-
-        Geo geo =
-                new Geo(coordinate.getLatitude(), coordinate.getLongitude());
-
-        purgeTable(store);
-
-        store.close();
-        connection.close();
     }
 
-    private static void insertDataFromRes(Connection connection,
-                                          DocumentStore store) throws FileNotFoundException {
-        File file = getResourceFile(InsertData.class);
-        Scanner scanner = new Scanner(file, UTF_8);
+    /**
+     * Prints into log all the documents from storage
+     */
+    private static void printAllTables(DocumentStore store) {
+        log.info("All records from db:");
+        for (Document entries : store.find()) {
+            log.info(entries.toString());
+        }
+    }
 
+    /**
+     * Read a file and insert data to db. One line in file is one insert to db.
+     * Data in the file must be in json format.
+     */
+    private static void insertDataFromFile(Connection connection,
+                                           DocumentStore store, File file) throws FileNotFoundException {
+        Scanner scanner = new Scanner(file, UTF_8);
         while (scanner.hasNext()) {
             store.insert(connection.newDocument(scanner.nextLine()));
         }
     }
 
+    /**
+     * Deletes all data from storage
+     */
     private static void purgeTable(DocumentStore store) {
-        DocumentStream streamMasterDocs = store.find();
-        for (Document userDocument : streamMasterDocs) {
+        for (Document userDocument : store.find()) {
             store.delete(userDocument.getId());
         }
         store.flush();
     }
 
-    private static File getResourceFile(Class clazz) {
+    /**
+     * Return file from resources folder
+     */
+    private static File getResourceFile(Class clazz, String fileName) {
         ClassLoader classLoader = clazz.getClassLoader();
-        URL coordinatesUrl = classLoader.getResource(SAMPLE_DATA_FILE_NAME);
-        Preconditions.checkNotNull(coordinatesUrl, "Cannot find file " + SAMPLE_DATA_FILE_NAME);
-
+        URL coordinatesUrl = classLoader.getResource(fileName);
+        Preconditions.checkNotNull(coordinatesUrl, "Cannot find file " + fileName);
         return new File(coordinatesUrl.getFile());
     }
 }
