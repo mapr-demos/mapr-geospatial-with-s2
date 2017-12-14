@@ -1,5 +1,7 @@
 package com.mapr.geospatial.entity;
 
+import java.util.Objects;
+
 public class Airport {
 
     private String _id;
@@ -52,24 +54,17 @@ public class Airport {
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-
         Airport airport = (Airport) o;
-
-        if (_id != null ? !_id.equals(airport._id) : airport._id != null) return false;
-        if (name != null ? !name.equals(airport.name) : airport.name != null) return false;
-        if (type != null ? !type.equals(airport.type) : airport.type != null) return false;
-        if (code != null ? !code.equals(airport.code) : airport.code != null) return false;
-        return loc != null ? loc.equals(airport.loc) : airport.loc == null;
+        return Objects.equals(_id, airport._id) &&
+                Objects.equals(name, airport.name) &&
+                Objects.equals(type, airport.type) &&
+                Objects.equals(code, airport.code) &&
+                Objects.equals(loc, airport.loc);
     }
 
     @Override
     public int hashCode() {
-        int result = _id != null ? _id.hashCode() : 0;
-        result = 31 * result + (name != null ? name.hashCode() : 0);
-        result = 31 * result + (type != null ? type.hashCode() : 0);
-        result = 31 * result + (code != null ? code.hashCode() : 0);
-        result = 31 * result + (loc != null ? loc.hashCode() : 0);
-        return result;
+        return Objects.hash(_id, name, type, code, loc);
     }
 
     @Override

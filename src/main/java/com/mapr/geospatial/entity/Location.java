@@ -1,6 +1,7 @@
 package com.mapr.geospatial.entity;
 
 import java.util.List;
+import java.util.Objects;
 
 public class Location {
 
@@ -27,25 +28,21 @@ public class Location {
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-
         Location location = (Location) o;
-
-        if (type != null ? !type.equals(location.type) : location.type != null) return false;
-        return coordinates != null ? coordinates.equals(location.coordinates) : location.coordinates == null;
+        return Objects.equals(type, location.type) &&
+                Objects.equals(coordinates, location.coordinates);
     }
 
     @Override
     public int hashCode() {
-        int result = type != null ? type.hashCode() : 0;
-        result = 31 * result + (coordinates != null ? coordinates.hashCode() : 0);
-        return result;
+        return Objects.hash(type, coordinates);
     }
 
     @Override
     public String toString() {
         return "Location{" +
                 "type='" + type + '\'' +
-                ", airports=" + coordinates +
+                ", coordinates=" + coordinates +
                 '}';
     }
 }
