@@ -7,6 +7,7 @@ import com.google.common.geometry.S2Polygon;
 import com.google.common.geometry.S2PolygonBuilder;
 import com.mapr.geospatial.entity.Airport;
 import com.mapr.geospatial.entity.Coordinate;
+import com.mapr.geospatial.entity.Location;
 import com.mapr.geospatial.entity.State;
 import org.ojai.Document;
 import org.ojai.DocumentStream;
@@ -41,7 +42,7 @@ public class InsertData {
     private static final String AIRPORTS_SAMPLE_DATA = "airports";
     private static final String STATES_SAMPLE_DATA = "states";
 
-    private static final String LOOKED_STATE = "WY";
+    private static final String LOOKED_STATE = "CA";
 
     public static void main(String[] args) throws Exception {
 
@@ -81,7 +82,7 @@ public class InsertData {
             State state
                     = statesDocs.iterator().next().toJavaBean(State.class);
 
-            S2Polygon statePolygon = createPolygonFromCoordinates(state);
+            S2Polygon statePolygon = createPolygon(state.getLoc());
 
             List<Airport> resAirports
                     = getAllAirportsFromState(airports.find(), statePolygon);
@@ -119,7 +120,7 @@ public class InsertData {
 
         for (Document document : states.find()) {
             State tmp = document.toJavaBean(State.class);
-            S2Polygon tmpPolygon = createPolygonFromCoordinates(tmp);
+            S2Polygon tmpPolygon = createPolygon(tmp.getLoc());
 
             if (statePolygon.intersects(tmpPolygon)) {
                 intersectedStates.add(tmp.getName());
@@ -137,14 +138,17 @@ public class InsertData {
         for (Document doc : airports) {
             Airport airport = doc.toJavaBean(Airport.class);
 
-            Coordinate airportCoordinate
-                    = airport.getLoc().getCoordinates().get(0);
+            if (airport.getLoc().getType().equals("Point")) {
 
-            S2Point airportPoint
-                    = S2LatLng.fromDegrees(airportCoordinate.getLatitude(), airportCoordinate.getLongitude()).toPoint();
+                Coordinate airportCoordinate
+                        = airport.getLoc().getCoordinates().get(0).get(0);
 
-            if (statePolygon.contains(airportPoint)) {
-                resAirports.add(airport);
+                S2Point airportPoint
+                        = S2LatLng.fromDegrees(airportCoordinate.getLatitude(), airportCoordinate.getLongitude()).toPoint();
+
+                if (statePolygon.contains(airportPoint)) {
+                    resAirports.add(airport);
+                }
             }
         }
 
@@ -152,13 +156,25 @@ public class InsertData {
     }
 
     /**
-     * Creates polygon representation of the state
+     * Creates polygon representation of the state based on a location
      */
-    private static S2Polygon createPolygonFromCoordinates(State state) {
+    private static S2Polygon createPolygon(Location location) {
         S2PolygonBuilder polygonBuilder = new S2PolygonBuilder();
 
-        Iterator<Coordinate> it
-                = state.getLoc().getCoordinates().iterator();
+        for (List<Coordinate> coordinates : location.getCoordinates()) {
+            polygonBuilder.addPolygon(createPolygonFromCoordinates(coordinates));
+        }
+
+        return polygonBuilder.assemblePolygon();
+    }
+
+    /**
+     * Creates polygon representation of the state based on a coordinates
+     */
+    private static S2Polygon createPolygonFromCoordinates(List<Coordinate> coordinates) {
+        S2PolygonBuilder polygonBuilder = new S2PolygonBuilder();
+
+        Iterator<Coordinate> it = coordinates.iterator();
 
         Coordinate first = it.next();
         Coordinate previous = first;
