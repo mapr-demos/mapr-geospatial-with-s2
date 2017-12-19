@@ -2,12 +2,8 @@ package com.mapr.geospatial;
 
 import com.google.common.base.Preconditions;
 import com.google.common.geometry.S2LatLng;
-import com.google.common.geometry.S2Point;
 import com.google.common.geometry.S2Polygon;
-import com.google.common.geometry.S2PolygonBuilder;
 import com.mapr.geospatial.entity.Airport;
-import com.mapr.geospatial.entity.Coordinate;
-import com.mapr.geospatial.entity.Location;
 import com.mapr.geospatial.entity.State;
 import org.ojai.Document;
 import org.ojai.DocumentStream;
@@ -22,12 +18,15 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.net.URL;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Scanner;
 
+import static com.mapr.geospatial.GeoDbUtils.createPolygon;
+import static com.mapr.geospatial.GeoDbUtils.getAllAirportsFromState;
+import static com.mapr.geospatial.GeoDbUtils.getAllIntersectedStatesWith;
+import static com.mapr.geospatial.GeoDbUtils.getNearAirports;
+import static com.mapr.geospatial.GeoDbUtils.purgeTable;
 import static org.apache.commons.lang3.CharEncoding.UTF_8;
 
 public class InsertData {
@@ -97,6 +96,15 @@ public class InsertData {
 
             log.info("Intersected states with {}: {}", LOOKED_STATE, Arrays.toString(intersectedStates.toArray()));
 
+            // Proximity
+
+            S2LatLng point = S2LatLng.fromDegrees(-73.965355, 40.782865);
+
+            List<Airport> nearAirports = getNearAirports(airports.find(), point, 20000);
+
+            log.info("Near airports to point {} is : {}", point, nearAirports);
+            log.info("Quantity of airports: {}", nearAirports.size());
+
 //            printAllTables(airports);
 //            printAllTables(states);
 
@@ -110,94 +118,6 @@ public class InsertData {
 
             connection.close();
         }
-    }
-
-    /**
-     * Returns all states that intersected with state
-     */
-    private static List<String> getAllIntersectedStatesWith(S2Polygon statePolygon, DocumentStore states) {
-        List<String> intersectedStates = new ArrayList<>();
-
-        for (Document document : states.find()) {
-            State tmp = document.toJavaBean(State.class);
-            S2Polygon tmpPolygon = createPolygon(tmp.getLoc());
-
-            if (statePolygon.intersects(tmpPolygon)) {
-                intersectedStates.add(tmp.getName());
-            }
-        }
-        return intersectedStates;
-    }
-
-    /**
-     * Returns list of airports that belongs to the state
-     */
-    private static List<Airport> getAllAirportsFromState(DocumentStream airports, S2Polygon statePolygon) {
-        List<Airport> resAirports = new ArrayList<>();
-
-        for (Document doc : airports) {
-            Airport airport = doc.toJavaBean(Airport.class);
-
-            if (airport.getLoc().getType().equals("Point")) {
-
-                Coordinate airportCoordinate
-                        = airport.getLoc().getCoordinates().get(0).get(0);
-
-                S2Point airportPoint
-                        = S2LatLng.fromDegrees(airportCoordinate.getLatitude(), airportCoordinate.getLongitude()).toPoint();
-
-                if (statePolygon.contains(airportPoint)) {
-                    resAirports.add(airport);
-                }
-            }
-        }
-
-        return resAirports;
-    }
-
-    /**
-     * Creates polygon representation of the state based on a location
-     */
-    private static S2Polygon createPolygon(Location location) {
-        S2PolygonBuilder polygonBuilder = new S2PolygonBuilder();
-
-        for (List<Coordinate> coordinates : location.getCoordinates()) {
-            polygonBuilder.addPolygon(createPolygonFromCoordinates(coordinates));
-        }
-
-        return polygonBuilder.assemblePolygon();
-    }
-
-    /**
-     * Creates polygon representation of the state based on a coordinates
-     */
-    private static S2Polygon createPolygonFromCoordinates(List<Coordinate> coordinates) {
-        S2PolygonBuilder polygonBuilder = new S2PolygonBuilder();
-
-        Iterator<Coordinate> it = coordinates.iterator();
-
-        Coordinate first = it.next();
-        Coordinate previous = first;
-        Coordinate current = first;
-        while (it.hasNext()) {
-            current = it.next();
-            S2Point previousPoint
-                    = S2LatLng.fromDegrees(previous.getLatitude(), previous.getLongitude()).toPoint();
-            S2Point currentPoint
-                    = S2LatLng.fromDegrees(current.getLatitude(), current.getLongitude()).toPoint();
-
-            polygonBuilder.addEdge(previousPoint, currentPoint);
-            previous = current;
-        }
-
-        S2Point lastPoint
-                = S2LatLng.fromDegrees(current.getLatitude(), current.getLongitude()).toPoint();
-        S2Point firstPoint
-                = S2LatLng.fromDegrees(first.getLatitude(), first.getLongitude()).toPoint();
-
-        polygonBuilder.addEdge(lastPoint, firstPoint);
-
-        return polygonBuilder.assemblePolygon();
     }
 
     /**
@@ -220,16 +140,6 @@ public class InsertData {
         while (scanner.hasNext()) {
             store.insert(connection.newDocument(scanner.nextLine()));
         }
-    }
-
-    /**
-     * Deletes all data from storage
-     */
-    private static void purgeTable(DocumentStore store) {
-        for (Document userDocument : store.find()) {
-            store.delete(userDocument.getId());
-        }
-        store.flush();
     }
 
     /**
