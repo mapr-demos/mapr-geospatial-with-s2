@@ -1,47 +1,31 @@
 package com.mapr.geospatial;
 
 import com.google.common.base.Preconditions;
+import com.google.common.geometry.S2CellId;
 import com.google.common.geometry.S2LatLng;
-import com.google.common.geometry.S2Polygon;
-import com.mapr.geospatial.entity.Airport;
-import com.mapr.geospatial.entity.State;
 import org.ojai.Document;
-import org.ojai.DocumentStream;
 import org.ojai.store.Connection;
 import org.ojai.store.DocumentStore;
 import org.ojai.store.DriverManager;
-import org.ojai.store.Query;
-import org.ojai.store.QueryCondition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.net.URL;
-import java.util.Arrays;
-import java.util.List;
 import java.util.Scanner;
 
-import static com.mapr.geospatial.GeoDbUtils.createPolygon;
-import static com.mapr.geospatial.GeoDbUtils.getAllAirportsFromState;
-import static com.mapr.geospatial.GeoDbUtils.getAllIntersectedStatesWith;
-import static com.mapr.geospatial.GeoDbUtils.getNearAirports;
-import static com.mapr.geospatial.GeoDbUtils.purgeTable;
 import static org.apache.commons.lang3.CharEncoding.UTF_8;
 
 public class InsertData {
 
     private static final Logger log = LoggerFactory.getLogger(InsertData.class);
 
-    private static final String AIRPORTS_TABLE_NAME = "/apps/airports";
-    private static final String STATES_TABLE_NAME = "/apps/states";
+    private static final String POINTS_TABLE_NAME = "/apps/points";
 
     private static final String DRIVER_NAME = "ojai:mapr:";
 
-    private static final String AIRPORTS_SAMPLE_DATA = "airports";
-    private static final String STATES_SAMPLE_DATA = "states";
-
-    private static final String LOOKED_STATE = "CA";
+    private static final String POINTS_SAMPLE_DATA = "points";
 
     public static void main(String[] args) throws Exception {
 
@@ -49,75 +33,28 @@ public class InsertData {
         final Connection connection = DriverManager.getConnection(DRIVER_NAME);
 
         // Get an instance of airports storage
-        final DocumentStore airports = connection.getStore(AIRPORTS_TABLE_NAME);
-
-        // Get an instance of states storage
-        final DocumentStore states = connection.getStore(STATES_TABLE_NAME);
+        final DocumentStore points = connection.getStore(POINTS_TABLE_NAME);
 
         try {
 
-            File airportsFile
-                    = getResourceFile(InsertData.class, AIRPORTS_SAMPLE_DATA);
+            File pointsFile
+                    = getResourceFile(InsertData.class, POINTS_SAMPLE_DATA);
 
-            insertDataFromFile(connection, airports, airportsFile);
+            insertDataFromFile(connection, points, pointsFile);
 
-            File statesFile =
-                    getResourceFile(InsertData.class, STATES_SAMPLE_DATA);
-
-            insertDataFromFile(connection, states, statesFile);
-
-            final Query query = connection.newQuery()
-                    .where(
-                            connection.newCondition()
-                                    .is("code", QueryCondition.Op.EQUAL, LOOKED_STATE)   // Build an OJAI QueryCondition
-                                    .build())
-                    .limit(1)
-                    .build();
-
-            DocumentStream statesDocs = states.findQuery(query);
-
-            // Inclusion
-
-            State state
-                    = statesDocs.iterator().next().toJavaBean(State.class);
-
-            S2Polygon statePolygon = createPolygon(state.getLoc());
-
-            List<Airport> resAirports
-                    = getAllAirportsFromState(airports.find(), statePolygon);
-
-            log.info("Quantity of airports in the {} : {}", LOOKED_STATE, resAirports.size());
-            log.info(Arrays.toString(resAirports.toArray()));
-
-            // Intersection
-
-            List<String> intersectedStates
-                    = getAllIntersectedStatesWith(statePolygon, states);
-
-            log.info("Intersected states with {}: {}", LOOKED_STATE, Arrays.toString(intersectedStates.toArray()));
-
-            // Proximity
-
-            S2LatLng point = S2LatLng.fromDegrees(-73.965355, 40.782865);
-
-            List<Airport> nearAirports = getNearAirports(airports.find(), point, 20000);
-
-            log.info("Near airports to point {} is : {}", point, nearAirports);
-            log.info("Quantity of airports: {}", nearAirports.size());
-
-//            printAllTables(airports);
-//            printAllTables(states);
+            printAllTables(points);
 
         } finally {
             // remove all data from db
-            purgeTable(airports);
-            purgeTable(states);
-
-            airports.close();
-            states.close();
-
+            purgeTable(points);
+            points.close();
             connection.close();
         }
+    }
+
+    private static Long getCellIdFromDegrees(double lat, double lon) {
+        S2LatLng point = S2LatLng.fromDegrees(lat, lon);
+        return S2CellId.fromLatLng(point).id();
     }
 
     /**
@@ -150,5 +87,15 @@ public class InsertData {
         URL coordinatesUrl = classLoader.getResource(fileName);
         Preconditions.checkNotNull(coordinatesUrl, "Cannot find file " + fileName);
         return new File(coordinatesUrl.getFile());
+    }
+
+    /**
+     * Deletes all data from storage
+     */
+    private static void purgeTable(DocumentStore store) {
+        for (Document userDocument : store.find()) {
+            store.delete(userDocument.getId());
+        }
+        store.flush();
     }
 }
