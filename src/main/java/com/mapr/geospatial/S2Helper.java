@@ -34,12 +34,13 @@ public class S2Helper {
 
     @SneakyThrows
     public List<Point> findAllPointsInCell(S2CellId cellId) {
+        // compute min & max limits for cell
         Long bmin = cellId.rangeMin().id();
         Long bmax = cellId.rangeMax().id();
 
         List<Point> points = new ArrayList<>();
-
-        DocumentStream stream = table.findQuery(findCell(bmin, bmax));
+        //find all cells from range
+        DocumentStream stream = table.findQuery(findCells(bmin, bmax));
         for (Document document : stream) {
             Point point = objectMapper.readValue(document.asJsonString(), Point.class);
             points.add(point);
@@ -47,7 +48,14 @@ public class S2Helper {
         return points;
     }
 
-    private Query findCell(Long bmin, Long bmax) {
+    /**
+     * Build query that will find all cells from range
+     *
+     * @param bmin min id value
+     * @param bmax max id value
+     * @return Query
+     */
+    private Query findCells(Long bmin, Long bmax) {
         return connection.newQuery()
                 .where(connection.newCondition()
                         .is("id", QueryCondition.Op.GREATER_OR_EQUAL, bmin)
@@ -56,7 +64,7 @@ public class S2Helper {
                 .build();
     }
 
-    private void storePoint(Connection connection, Point point) {
+    public void storePoint(Connection connection, Point point) {
         Document newPoint = connection
                 .newDocument()
                 .setId(UUID.randomUUID().toString())
@@ -65,7 +73,14 @@ public class S2Helper {
         table.insertOrReplace(newPoint);
     }
 
-    private S2CellId getCellId(Double latitude, Double longitude) {
+    /**
+     * Compute cellId using latitude and longitude
+     *
+     * @param latitude  latitude in degrees
+     * @param longitude longitude in degrees
+     * @return S2CellId
+     */
+    public S2CellId getCellIdFromLatLong(Double latitude, Double longitude) {
         return S2CellId.fromLatLng(fromDegrees(latitude, longitude));
     }
 }
