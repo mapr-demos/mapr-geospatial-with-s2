@@ -58,9 +58,9 @@ public class S2Helper {
     private Query findCells(Long bmin, Long bmax) {
         return connection.newQuery()
                 .where(connection.newCondition()
-                        .is("id", QueryCondition.Op.GREATER_OR_EQUAL, bmin)
+                        .is("cellId", QueryCondition.Op.GREATER_OR_EQUAL, bmin)
                         .and()
-                        .is("id", QueryCondition.Op.LESS_OR_EQUAL, bmax))
+                        .is("cellId", QueryCondition.Op.LESS_OR_EQUAL, bmax))
                 .build();
     }
 
@@ -68,7 +68,7 @@ public class S2Helper {
         Document newPoint = connection
                 .newDocument()
                 .setId(UUID.randomUUID().toString())
-                .set("id", point.getCellId())
+                .set("cellId", point.getCellId())
                 .set("value", point.getName());
         table.insertOrReplace(newPoint);
     }
