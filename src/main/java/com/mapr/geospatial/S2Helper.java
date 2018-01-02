@@ -2,6 +2,9 @@ package com.mapr.geospatial;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.geometry.S2CellId;
+import com.google.common.geometry.S2CellUnion;
+import com.google.common.geometry.S2Region;
+import com.google.common.geometry.S2RegionCoverer;
 import com.mapr.geospatial.entity.Point;
 import lombok.Data;
 import lombok.SneakyThrows;
@@ -22,9 +25,9 @@ import static com.google.common.geometry.S2LatLng.fromDegrees;
 public class S2Helper {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
-    private String tableName;
-    private Connection connection;
-    private DocumentStore table;
+    private final String tableName;
+    private final Connection connection;
+    private final DocumentStore table;
 
     public S2Helper(String tableName, Connection connection) {
         this.tableName = tableName;
@@ -32,6 +35,24 @@ public class S2Helper {
         this.table = connection.getStore(tableName);
     }
 
+    public List<Point> findAllPointsInRegion(S2Region region, ZoomLevel level) {
+        S2CellUnion s2CellIds = getS2CellIds(region, level.getLevel());
+
+        List<Point> points = new ArrayList<>();
+
+        for (S2CellId cellId : s2CellIds.cellIds()) {
+            List<Point> pointsInCell = findAllPointsInCell(cellId);
+            points.addAll(pointsInCell);
+        }
+        return points;
+    }
+
+    /**
+     * Looking for all points withing cell range.
+     *
+     * @param cellId S2CellId
+     * @return List of points
+     */
     @SneakyThrows
     public List<Point> findAllPointsInCell(S2CellId cellId) {
         // compute min & max limits for cell
@@ -64,13 +85,19 @@ public class S2Helper {
                 .build();
     }
 
-    public void storePoint(Connection connection, Point point) {
+    public void storePoint(Point point) {
         Document newPoint = connection
                 .newDocument()
-                .setId(UUID.randomUUID().toString())
+                .setId(point.get_id())
                 .set("cellId", point.getCellId())
-                .set("value", point.getName());
+                .setArray("value", point.getValue());
         table.insertOrReplace(newPoint);
+    }
+
+    public void storePoint(Double latitude, Double longitude, Object value) {
+        S2CellId cellId = getCellIdFromLatLong(latitude, longitude);
+        Point point = new Point(UUID.randomUUID().toString(), cellId.id(), value);
+        storePoint(point);
     }
 
     /**
@@ -82,5 +109,11 @@ public class S2Helper {
      */
     public S2CellId getCellIdFromLatLong(Double latitude, Double longitude) {
         return S2CellId.fromLatLng(fromDegrees(latitude, longitude));
+    }
+
+    private S2CellUnion getS2CellIds(S2Region region, int level) {
+        S2RegionCoverer coverer = new S2RegionCoverer();
+        coverer.setLevelMod(level);
+        return coverer.getCovering(region);
     }
 }

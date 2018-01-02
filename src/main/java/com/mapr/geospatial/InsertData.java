@@ -1,13 +1,13 @@
 package com.mapr.geospatial;
 
-import com.google.common.geometry.S2CellId;
-import com.google.common.geometry.S2CellUnion;
 import com.google.common.geometry.S2LatLngRect;
-import com.google.common.geometry.S2RegionCoverer;
+import com.mapr.geospatial.entity.Point;
 import org.ojai.store.Connection;
 import org.ojai.store.DriverManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.List;
 
 import static com.google.common.geometry.S2LatLng.fromDegrees;
 
@@ -28,15 +28,8 @@ public class InsertData {
                 fromDegrees(48.99, 1.852),
                 fromDegrees(48.68, 2.75)
         );
-        S2RegionCoverer coverer = new S2RegionCoverer();
-        coverer.setLevelMod(20);
-        coverer.setMaxCells(8);
-        S2CellUnion covering = coverer.getCovering(rect);
 
-        for (S2CellId cellId : covering.cellIds()) {
-            s2Helper.findAllPointsInCell(cellId);
-        }
-
+        List<Point> allPointsInRegion = s2Helper.findAllPointsInRegion(rect, ZoomLevel.HIGH);
 
     }
 

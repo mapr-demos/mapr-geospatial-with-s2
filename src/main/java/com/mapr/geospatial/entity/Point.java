@@ -9,5 +9,5 @@ public class Point {
 
     private String _id;
     private Long cellId;
-    private String name;
+    private Object value;
 }
