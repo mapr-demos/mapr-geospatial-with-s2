@@ -2,18 +2,16 @@ package com.mapr.geospatial;
 
 import com.google.common.geometry.S2LatLngRect;
 import com.mapr.geospatial.entity.Point;
+import lombok.extern.slf4j.Slf4j;
 import org.ojai.store.Connection;
 import org.ojai.store.DriverManager;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.List;
 
 import static com.google.common.geometry.S2LatLng.fromDegrees;
 
+@Slf4j
 public class InsertData {
-
-    private static final Logger log = LoggerFactory.getLogger(InsertData.class);
 
     private static final String AIRPORTS_TABLE_NAME = "/apps/airports";
 
@@ -25,13 +23,11 @@ public class InsertData {
 
         S2Helper s2Helper = new S2Helper(AIRPORTS_TABLE_NAME, connection);
         S2LatLngRect rect = S2LatLngRect.fromPointPair(
-                fromDegrees(48.99, 1.852),
-                fromDegrees(48.68, 2.75)
+                fromDegrees(-118.766598, 45.67105),
+                fromDegrees(-95.672179, 32.828369)
         );
-
         List<Point> allPointsInRegion = s2Helper.findAllPointsInRegion(rect, ZoomLevel.HIGH);
 
+        log.info(String.valueOf(allPointsInRegion.size()));
     }
-
-
 }

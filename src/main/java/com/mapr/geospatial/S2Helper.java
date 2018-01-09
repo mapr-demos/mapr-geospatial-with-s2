@@ -79,9 +79,11 @@ public class S2Helper {
     private Query findCells(Long bmin, Long bmax) {
         return connection.newQuery()
                 .where(connection.newCondition()
+                        .is("cellId", QueryCondition.Op.LESS_OR_EQUAL, bmax)
+                        .build())
+                .where(connection.newCondition()
                         .is("cellId", QueryCondition.Op.GREATER_OR_EQUAL, bmin)
-                        .and()
-                        .is("cellId", QueryCondition.Op.LESS_OR_EQUAL, bmax))
+                        .build())
                 .build();
     }
 
