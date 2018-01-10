@@ -15,11 +15,13 @@ import org.ojai.store.DocumentStore;
 import org.ojai.store.Query;
 import org.ojai.store.QueryCondition;
 
+import java.io.File;
+import java.io.FileNotFoundException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
+import java.util.Scanner;
 
-import static com.google.common.geometry.S2LatLng.fromDegrees;
+import static org.apache.commons.codec.CharEncoding.UTF_8;
 
 @Data
 public class S2Helper {
@@ -70,6 +72,34 @@ public class S2Helper {
     }
 
     /**
+     * Reads a file and insert data to db. One line in file is one insert to db.
+     * Data in the file must be in json format.
+     */
+    public void insertDataFromFile(File file) throws FileNotFoundException {
+        Scanner scanner = new Scanner(file, UTF_8);
+        while (scanner.hasNext()) {
+            table.insert(connection.newDocument(scanner.nextLine()));
+        }
+    }
+
+    /**
+     * Deletes all data from storage
+     */
+    public void purgeTable() {
+        for (Document userDocument : table.find()) {
+            table.delete(userDocument.getId());
+        }
+        table.flush();
+    }
+
+    /**
+     * Close DocumentStore
+     */
+    public void close() {
+        table.close();
+    }
+
+    /**
      * Build query that will find all cells from range
      *
      * @param bmin min id value
@@ -85,32 +115,6 @@ public class S2Helper {
                         .is("cellId", QueryCondition.Op.GREATER_OR_EQUAL, bmin)
                         .build())
                 .build();
-    }
-
-    public void storePoint(Point point) {
-        Document newPoint = connection
-                .newDocument()
-                .setId(point.get_id())
-                .set("cellId", point.getCellId())
-                .setArray("value", point.getValue());
-        table.insertOrReplace(newPoint);
-    }
-
-    public void storePoint(Double latitude, Double longitude, Object value) {
-        S2CellId cellId = getCellIdFromLatLong(latitude, longitude);
-        Point point = new Point(UUID.randomUUID().toString(), cellId.id(), value);
-        storePoint(point);
-    }
-
-    /**
-     * Compute cellId using latitude and longitude
-     *
-     * @param latitude  latitude in degrees
-     * @param longitude longitude in degrees
-     * @return S2CellId
-     */
-    public S2CellId getCellIdFromLatLong(Double latitude, Double longitude) {
-        return S2CellId.fromLatLng(fromDegrees(latitude, longitude));
     }
 
     private S2CellUnion getS2CellIds(S2Region region, int level) {
