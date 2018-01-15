@@ -15,13 +15,8 @@ import org.ojai.store.DocumentStore;
 import org.ojai.store.Query;
 import org.ojai.store.QueryCondition;
 
-import java.io.File;
-import java.io.FileNotFoundException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Scanner;
-
-import static org.apache.commons.codec.CharEncoding.UTF_8;
 
 @Data
 public class S2Helper {
@@ -69,17 +64,6 @@ public class S2Helper {
             points.add(point);
         }
         return points;
-    }
-
-    /**
-     * Reads a file and insert data to db. One line in file is one insert to db.
-     * Data in the file must be in json format.
-     */
-    public void insertDataFromFile(File file) throws FileNotFoundException {
-        Scanner scanner = new Scanner(file, UTF_8);
-        while (scanner.hasNext()) {
-            table.insert(connection.newDocument(scanner.nextLine()));
-        }
     }
 
     /**

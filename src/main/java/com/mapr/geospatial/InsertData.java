@@ -5,13 +5,16 @@ import com.google.common.geometry.S2LatLngRect;
 import com.mapr.geospatial.entity.Point;
 import lombok.extern.slf4j.Slf4j;
 import org.ojai.store.Connection;
+import org.ojai.store.DocumentStore;
 import org.ojai.store.DriverManager;
 
 import java.io.File;
 import java.net.URL;
 import java.util.List;
+import java.util.Scanner;
 
 import static com.google.common.geometry.S2LatLng.fromDegrees;
+import static org.apache.commons.codec.CharEncoding.UTF_8;
 
 @Slf4j
 public class InsertData {
@@ -28,12 +31,16 @@ public class InsertData {
 
         S2Helper s2Helper = new S2Helper(AIRPORTS_TABLE_NAME, connection);
 
-        try {
+        try (DocumentStore table = connection.getStore(AIRPORTS_TABLE_NAME)) {
 
             File pointsFile
                     = getResourceFile(InsertData.class, POINTS_SAMPLE_DATA);
 
-            s2Helper.insertDataFromFile(pointsFile);
+            // Insert sample data to db from /resources/points
+            Scanner scanner = new Scanner(pointsFile, UTF_8);
+            while (scanner.hasNext()) {
+                table.insert(connection.newDocument(scanner.nextLine()));
+            }
 
             S2LatLngRect rect = S2LatLngRect.fromPointPair(
                     fromDegrees(44.984924, -111.044691),
