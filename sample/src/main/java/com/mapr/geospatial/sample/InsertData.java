@@ -1,8 +1,10 @@
-package com.mapr.geospatial;
+package com.mapr.geospatial.sample;
 
 import com.google.common.base.Preconditions;
 import com.google.common.geometry.S2LatLngRect;
-import com.mapr.geospatial.entity.Point;
+import com.mapr.geospatial.lib.S2Helper;
+import com.mapr.geospatial.lib.ZoomLevel;
+import com.mapr.geospatial.lib.entity.Point;
 import lombok.extern.slf4j.Slf4j;
 import org.ojai.store.Connection;
 import org.ojai.store.DocumentStore;
@@ -31,13 +33,13 @@ public class InsertData {
 
         S2Helper s2Helper = new S2Helper(AIRPORTS_TABLE_NAME, connection);
 
-        try (DocumentStore table = connection.getStore(AIRPORTS_TABLE_NAME)) {
+        File pointsFile
+                = getResourceFile(InsertData.class, POINTS_SAMPLE_DATA);
 
-            File pointsFile
-                    = getResourceFile(InsertData.class, POINTS_SAMPLE_DATA);
+        try (DocumentStore table = connection.getStore(AIRPORTS_TABLE_NAME);
+                Scanner scanner = new Scanner(pointsFile, UTF_8)) {
 
             // Insert sample data to db from /resources/points
-            Scanner scanner = new Scanner(pointsFile, UTF_8);
             while (scanner.hasNext()) {
                 table.insert(connection.newDocument(scanner.nextLine()));
             }

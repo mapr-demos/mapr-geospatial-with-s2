@@ -1,4 +1,4 @@
-package com.mapr.geospatial;
+package com.mapr.geospatial.lib;
 
 public enum ZoomLevel {
 

@@ -1,11 +1,8 @@
-package com.mapr.geospatial;
+package com.mapr.geospatial.lib;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.geometry.S2CellId;
-import com.google.common.geometry.S2CellUnion;
-import com.google.common.geometry.S2Region;
-import com.google.common.geometry.S2RegionCoverer;
-import com.mapr.geospatial.entity.Point;
+import com.google.common.geometry.*;
+import com.mapr.geospatial.lib.entity.Point;
 import lombok.Data;
 import lombok.SneakyThrows;
 import org.ojai.Document;
@@ -64,6 +61,16 @@ public class S2Helper {
             points.add(point);
         }
         return points;
+    }
+
+    /**
+     *
+     * @param lat
+     * @param lng
+     * @return
+     */
+    public Long getCellIdFromDegrees(double lat, double lng) {
+        return S2CellId.fromLatLng(S2LatLng.fromDegrees(lat, lng)).id();
     }
 
     /**

@@ -1,4 +1,4 @@
-package com.mapr.geospatial.entity;
+package com.mapr.geospatial.lib.entity;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
