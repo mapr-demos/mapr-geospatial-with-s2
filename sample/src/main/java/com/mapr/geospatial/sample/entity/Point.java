@@ -1,10 +1,12 @@
-package com.mapr.geospatial.lib.entity;
+package com.mapr.geospatial.sample.entity;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Data
 @AllArgsConstructor
+@NoArgsConstructor
 public class Point {
 
     private String _id;
