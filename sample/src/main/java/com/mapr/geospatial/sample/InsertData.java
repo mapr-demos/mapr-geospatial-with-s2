@@ -1,6 +1,7 @@
 package com.mapr.geospatial.sample;
 
 import com.google.common.base.Preconditions;
+import com.google.common.geometry.S2LatLng;
 import com.google.common.geometry.S2LatLngRect;
 import com.mapr.geospatial.lib.S2Helper;
 import com.mapr.geospatial.lib.ZoomLevel;
@@ -14,6 +15,7 @@ import org.ojai.store.DocumentStore;
 import org.ojai.store.DriverManager;
 
 import java.io.File;
+import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
@@ -45,7 +47,7 @@ public class InsertData {
         S2Helper helper = new S2Helper();
 
         File pointsFile
-                = getResourceFile(InsertData.class, POINTS_SAMPLE_DATA);
+            = getResourceFile(InsertData.class, POINTS_SAMPLE_DATA);
 
         Scanner scanner = new Scanner(pointsFile, UTF_8);
 
@@ -54,37 +56,71 @@ public class InsertData {
             table.insert(connection.newDocument(scanner.nextLine()));
         }
 
+        printDelimeter();
+        log.info("Find all airports in the Wyoming");
+
+        // ------------------- Sample 1 - Inclusion -------------------
+
         S2LatLngRect rect = S2LatLngRect.fromPointPair(
-                fromDegrees(44.984924, -111.044691),
-                fromDegrees(41.003994, -104.057992)
+            fromDegrees(44.984924, -111.044691),
+            fromDegrees(41.003994, -104.057992)
         );
 
-        List<Point> points = new ArrayList<>();
+        List<String> queries = helper.getQueriesForRegion("cellId", rect, ZoomLevel.HIGH);
         //find all cells from range
-        for (String query : helper.generateQueries("cellId", rect, ZoomLevel.HIGH)) {
+        List<Point> points = getPoints(queries);
 
-            DocumentStream stream = table.findQuery(
-                    connection.newQuery()
-                            .where(query)
-                            .build()
-            );
+//        log.info(String.valueOf());
 
-            for (Document document : stream) {
-                Point point = mapper.readValue(document.asJsonString(), Point.class);
-                points.add(point);
-            }
-        }
-
-        log.info(String.valueOf(points.size()));
+        log.info("Number of airports: {}", points.size());
+        printDelimeter();
 
         points.stream()
-                .map(Point::getValue)
-                .forEach(x -> log.info(x.toString()));
+            .map(Point::getValue)
+            .forEach(x -> log.info(x.toString()));
+
+        printDelimeter();
+        log.info("All airports that are located at less than 20km from the reservoir in NYC Central Park");
+
+        // ------------------- Sample 1 - Proximity -------------------
+
+        S2LatLng centerPoint = fromDegrees(40.782865, -73.965355);
+
+        List<String> queriesForCircles = helper.getQueriesForCircleSearchRegion("cellId", centerPoint, 20000, ZoomLevel.HIGH);
+
+        List<Point> circle = getPoints(queriesForCircles);
+
+        log.info("Number of airports: {}", circle.size());
+        printDelimeter();
+
+        circle.stream()
+            .map(Point::getValue)
+            .forEach(x -> log.info(x.toString()));
 
         purgeTable(table);
         table.close();
         connection.close();
+    }
 
+    /**
+     * Return all corresponding points
+     */
+    private static List<Point> getPoints(List<String> queries) throws IOException {
+        List<Point> points = new ArrayList<>();
+        for (String query : queries) {
+
+            DocumentStream stream = table.findQuery(
+                connection.newQuery()
+                    .where(query)
+                    .build()
+            );
+
+            for (Document document : stream) {
+                Point pointDto = mapper.readValue(document.asJsonString(), Point.class);
+                points.add(pointDto);
+            }
+        }
+        return points;
     }
 
     /**
@@ -105,5 +141,9 @@ public class InsertData {
         URL coordinatesUrl = classLoader.getResource(fileName);
         Preconditions.checkNotNull(coordinatesUrl, "Cannot find file " + fileName);
         return new File(coordinatesUrl.getFile());
+    }
+
+    private static void printDelimeter() {
+        log.info("\n__*************************************************************************__\n");
     }
 }
