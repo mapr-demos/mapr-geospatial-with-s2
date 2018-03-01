@@ -24,7 +24,15 @@ Installation, Setup and further information can be found [**here**](https://mapr
 
 ## Creating JSON Table in MapR 
 
+* Create Airports table
 ```
-$ table create -path /apps/airports -tabletype json
+$ maprcli table create -path /apps/airports -tabletype json
 $ maprcli table cf edit -path /apps/airports -cfname default -readperm p -writeperm p
+```
+
+* Create States table
+
+```
+$ maprcli table create -path /apps/states -tabletype json
+$ maprcli table cf edit -path /apps/states -cfname default -readperm p -writeperm p
 ```
