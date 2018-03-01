@@ -30,6 +30,11 @@ $ maprcli table create -path /apps/airports -tabletype json
 $ maprcli table cf edit -path /apps/airports -cfname default -readperm p -writeperm p
 ```
 
+* Create Index for a airports table
+```
+maprcli table index add -path /apps/airports -index cellID -indexedfields cellId
+```
+
 * Create States table
 
 ```
