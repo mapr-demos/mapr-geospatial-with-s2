@@ -1,9 +1,12 @@
 package com.mapr.geospatial.sample;
 
 import com.google.common.base.Preconditions;
-import com.google.common.geometry.*;
+import com.google.common.geometry.S2LatLng;
+import com.google.common.geometry.S2Point;
+import com.google.common.geometry.S2Polygon;
+import com.google.common.geometry.S2PolygonBuilder;
+import com.mapr.geospatial.lib.GPoint;
 import com.mapr.geospatial.lib.S2Helper;
-import com.mapr.geospatial.lib.ZoomLevel;
 import com.mapr.geospatial.sample.entity.Coordinate;
 import com.mapr.geospatial.sample.entity.Location;
 import com.mapr.geospatial.sample.entity.Point;
@@ -23,11 +26,10 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Scanner;
 
-import static com.google.common.geometry.S2LatLng.fromDegrees;
 import static org.apache.commons.codec.CharEncoding.UTF_8;
 
 @Slf4j
-public class InsertData {
+public class PolygonInclusion {
 
     private static final String AIRPORTS_TABLE_NAME = "/apps/airports";
     private static final String STATES_TABLE_NAME = "/apps/states";
@@ -39,9 +41,7 @@ public class InsertData {
     // Available variants:
     // WY, PA, OH, NM, MD, OR, WI, ND, NV, GA, AR, KS, NE, UT, MS, OK, WV, MI, CO, NG
     // WA, CT, MA, ID, MO, AL, SC, NH, SD, IL, TN, IN, IA, AZ, MN, DC, VA, TX, VT, DE, MT
-    private static final String LOOKED_STATE = "NV";
-
-    private static final double SEARCH_RADIUS_IN_METERS = 20000;
+    private static final String LOOKED_STATE = "CT";
 
     private static final String DRIVER_NAME = "ojai:mapr:";
 
@@ -62,60 +62,14 @@ public class InsertData {
 
             // Insert sample data to db (airports, states)
             File airportsFile
-                = getResourceFile(InsertData.class, POINTS_SAMPLE_DATA);
+                = getResourceFile(PolygonInclusion.class, POINTS_SAMPLE_DATA);
 
             insertDataFromFile(connection, airports, airportsFile);
 
             File statesFile =
-                getResourceFile(InsertData.class, STATES_SAMPLE_DATA);
+                getResourceFile(PolygonInclusion.class, STATES_SAMPLE_DATA);
 
             insertDataFromFile(connection, states, statesFile);
-
-            printDelimeter();
-
-            // ------------------- Sample 1 - Find in Rectangle area -------------------
-
-            log.info("Find all airports in the Wyoming");
-
-            S2LatLngRect rect = S2LatLngRect.fromPointPair(
-                fromDegrees(44.984924, -111.044691),
-                fromDegrees(41.003994, -104.057992)
-            );
-
-            List<String> queries = helper.getQueriesForRegion("cellId", rect, ZoomLevel.HIGH);
-            //find all cells from range
-            List<Point> points = getPoints(queries);
-
-            log.info("Number of airports: {}", points.size());
-            printDelimeter();
-
-            points.stream()
-                .map(Point::getValue)
-                .forEach(x -> log.info(x.toString()));
-
-            printDelimeter();
-
-            // ------------------- Sample 2 - Find in Circle area -------------------
-
-            log.info("All airports that are located at less than {} m from the reservoir in NYC Central Park", SEARCH_RADIUS_IN_METERS);
-
-            S2LatLng centerPoint = fromDegrees(40.782865, -73.965355);
-
-            List<String> queriesForCircles = helper.getQueriesForCircleSearchRegion("cellId", centerPoint, SEARCH_RADIUS_IN_METERS, ZoomLevel.HIGH);
-
-            List<Point> circle = getPoints(queriesForCircles);
-
-            log.info("Number of airports: {}", circle.size());
-
-            printDelimeter();
-
-            circle.stream()
-                .map(Point::getValue)
-                .forEach(x -> log.info(x.toString()));
-
-            printDelimeter();
-
-            // ------------------- Sample 3 - Find in Polygon region -------------------
 
             log.info("Find all airports in the {}", LOOKED_STATE);
 
@@ -132,17 +86,26 @@ public class InsertData {
             State state
                 = statesDocs.iterator().next().toJavaBean(State.class);
 
-            S2Polygon statePolygon = createPolygon(state.getLoc());
+            List<GPoint> points = convertCoordinatesToGPoints(state.getLoc().getCoordinates().get(0));
 
-            List<String> queriesForPolygon = helper.getQueriesForRegion("cellId", statePolygon, ZoomLevel.HIGH);
+            String queryForPolygon = helper.getQueryForPolygon("cellId", points);
 
-            List<Point> pointsInPolygon = getPoints(queriesForPolygon);
 
-            log.info("Number of airports in state {} : {}", LOOKED_STATE, pointsInPolygon.size());
+            List<Point> airportsPoints = new ArrayList<>();
+            DocumentStream stream = airports.findQuery(
+                connection.newQuery()
+                    .where(queryForPolygon)
+                    .build()
+            );
 
-            printDelimeter();
+            for (Document document : stream) {
+                Point pointDto = mapper.readValue(document.asJsonString(), Point.class);
+                airportsPoints.add(pointDto);
+            }
 
-            pointsInPolygon.stream()
+            log.info("Number of airports in state {} : {}", LOOKED_STATE, points.size());
+
+            airportsPoints.stream()
                 .map(Point::getValue)
                 .forEach(x -> log.info(x.toString()));
 
@@ -153,6 +116,14 @@ public class InsertData {
             states.close();
             connection.close();
         }
+    }
+
+    private static List<GPoint> convertCoordinatesToGPoints(List<Coordinate> coordinates) {
+        List<GPoint> points = new ArrayList<>();
+        for (Coordinate point : coordinates) {
+            points.add(new GPoint(point.getLatitude(), point.getLongitude()));
+        }
+        return points;
     }
 
     /**
