@@ -103,7 +103,7 @@ public class PolygonInclusion {
                 airportsPoints.add(pointDto);
             }
 
-            log.info("Number of airports in state {} : {}", LOOKED_STATE, points.size());
+            log.info("Number of airports in state {} : {}", LOOKED_STATE, airportsPoints.size());
 
             airportsPoints.stream()
                 .map(Point::getValue)

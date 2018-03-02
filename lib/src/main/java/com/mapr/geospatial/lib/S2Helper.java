@@ -11,7 +11,11 @@ import static com.google.common.geometry.S2LatLng.fromDegrees;
 
 public class S2Helper {
 
-    private final static Integer ZOOM_LEVEL = 25;
+    /**
+     * There is three types of zoom level (1, 2, 3). This levels specify level of accuracy.
+     * The 1 level is the most accurate, and 3 level is less accurate but it need less computations.
+     */
+    private final static Integer ZOOM_LEVEL = 1;
 
     /**
      * Generate query for searching points in the Rectangle region
@@ -24,7 +28,7 @@ public class S2Helper {
             fromDegrees(lowerLeft.getLatitude(), lowerLeft.getLongitude()),
             fromDegrees(upperRight.getLatitude(), upperRight.getLongitude())
         );
-        List<S2CellId> cellIds = getS2CellIds(rect, ZOOM_LEVEL);
+        List<S2CellId> cellIds = getS2CellIds(rect);
         return generateQueries(columnName, cellIds);
     }
 
@@ -42,7 +46,7 @@ public class S2Helper {
         S2Cap region = S2Cap.fromAxisHeight(
             center.normalized().toPoint(),
             (radius_radians * radius_radians) / 2);
-        List<S2CellId> cellIds = getS2CellIds(region, ZOOM_LEVEL);
+        List<S2CellId> cellIds = getS2CellIds(region);
         return generateQueries(columnName, cellIds);
     }
 
@@ -55,7 +59,7 @@ public class S2Helper {
      */
     public String getQueryForPolygon(String columnName, List<GPoint> points) {
         S2Polygon polygon = createPolygon(points);
-        List<S2CellId> cellIds = getS2CellIds(polygon, ZOOM_LEVEL);
+        List<S2CellId> cellIds = getS2CellIds(polygon);
         return generateQueries(columnName, cellIds);
     }
 
@@ -68,6 +72,31 @@ public class S2Helper {
      */
     public Long generateCellIdFromDegrees(double lat, double lng) {
         return S2CellId.fromLatLng(S2LatLng.fromDegrees(lat, lng)).id();
+    }
+
+    private String generateQueries(String columnName, List<S2CellId> cellIds) {
+        String query = "{\"$or\": [";
+        for (S2CellId cellId : cellIds) {
+            Long bmin = cellId.rangeMin().id();
+            Long bmax = cellId.rangeMax().id();
+
+            query += "{\"$and\": [{\"$ge\":{\"" + columnName + "\":" + bmin + "}}," +
+                "{\"$le\":{\"" + columnName + "\":" + bmax + "}}]},";
+        }
+        return query.substring(0, query.length() - 1) + "]}";
+    }
+
+    private ArrayList<S2CellId> getS2CellIds(S2Region region) {
+        ArrayList<S2CellId> covering = new ArrayList<>();
+        S2RegionCoverer coverer = new S2RegionCoverer();
+        coverer.setLevelMod(ZOOM_LEVEL);
+        coverer.getCovering(region, covering);
+        return covering;
+    }
+
+    private double earthMetersToRadians(double meters) {
+        double kEarthCircumferenceMeters = 1000 * 40075.017;
+        return (2 * M_PI) * (meters / kEarthCircumferenceMeters);
     }
 
     private static S2Polygon createPolygon(List<GPoint> points) {
@@ -106,30 +135,5 @@ public class S2Helper {
         polygonBuilder.addEdge(lastPoint, firstPoint);
 
         return polygonBuilder.assemblePolygon();
-    }
-
-    private String generateQueries(String columnName, List<S2CellId> cellIds) {
-        String query = "{\"$or\": [";
-        for (S2CellId cellId : cellIds) {
-            Long bmin = cellId.rangeMin().id();
-            Long bmax = cellId.rangeMax().id();
-
-            query += "{\"$and\": [{\"$ge\":{\"" + columnName + "\":" + bmin + "}}," +
-                "{\"$le\":{\"" + columnName + "\":" + bmax + "}}]},";
-        }
-        return query.substring(0, query.length() - 1) + "]}";
-    }
-
-    private ArrayList<S2CellId> getS2CellIds(S2Region region, int level) {
-        ArrayList<S2CellId> covering = new ArrayList<>();
-        S2RegionCoverer coverer = new S2RegionCoverer();
-        coverer.setLevelMod(level);
-        coverer.getCovering(region, covering);
-        return covering;
-    }
-
-    private double earthMetersToRadians(double meters) {
-        double kEarthCircumferenceMeters = 1000 * 40075.017;
-        return (2 * M_PI) * (meters / kEarthCircumferenceMeters);
     }
 }
