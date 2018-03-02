@@ -22,7 +22,7 @@ import java.util.Scanner;
 import static org.apache.commons.codec.CharEncoding.UTF_8;
 
 @Slf4j
-public class PolygonInclusion {
+public class PolygonInclusionWithAdditionalQuery {
 
     private static final String AIRPORTS_TABLE_NAME = "/apps/airports";
     private static final String STATES_TABLE_NAME = "/apps/states";
@@ -34,7 +34,7 @@ public class PolygonInclusion {
     // Available variants:
     // WY, PA, OH, NM, MD, OR, WI, ND, NV, GA, AR, KS, NE, UT, MS, OK, WV, MI, CO, NG
     // WA, CT, MA, ID, MO, AL, SC, NH, SD, IL, TN, IN, IA, AZ, MN, DC, VA, TX, VT, DE, MT
-    private static final String LOOKED_STATE = "CT";
+    private static final String LOOKED_STATE = "MI";
 
     private static final String DRIVER_NAME = "ojai:mapr:";
 
@@ -55,12 +55,12 @@ public class PolygonInclusion {
 
             // Insert sample data to db (airports, states)
             File airportsFile
-                = getResourceFile(PolygonInclusion.class, POINTS_SAMPLE_DATA);
+                = getResourceFile(PolygonInclusionWithAdditionalQuery.class, POINTS_SAMPLE_DATA);
 
             insertDataFromFile(connection, airports, airportsFile);
 
             File statesFile =
-                getResourceFile(PolygonInclusion.class, STATES_SAMPLE_DATA);
+                getResourceFile(PolygonInclusionWithAdditionalQuery.class, STATES_SAMPLE_DATA);
 
             insertDataFromFile(connection, states, statesFile);
 
@@ -88,6 +88,10 @@ public class PolygonInclusion {
             DocumentStream stream = airports.findQuery(
                 connection.newQuery()
                     .where(queryForPolygon)
+                    .where(
+                        connection.newCondition()
+                            .is("value.type", QueryCondition.Op.EQUAL, "International")
+                            .build())
                     .build()
             );
 

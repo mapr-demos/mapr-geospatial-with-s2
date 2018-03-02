@@ -94,6 +94,7 @@ public class Proximity {
         while (scanner.hasNext()) {
             store.insert(connection.newDocument(scanner.nextLine()));
         }
+        store.flush();
     }
 
     /**
